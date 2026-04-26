@@ -1,0 +1,10 @@
+{
+  "action": "opened",
+  "number": 42,
+  "repository": {"full_name": "your-username/test-repo"},
+  "pull_request": {
+    "head": {"sha": "test-sha-123"},
+    "title": "Test PR for CodeSentinel",
+    "user": {"login": "testuser"}
+  }
+}

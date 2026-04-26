@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Design tokens — HSL channel values (no hsl() wrapper).
+   Tailwind reads these via theme.extend.colors in tailwind.config.js and
+   generates bg-*, text-*, border-* utility classes from them.
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --background:           224 71% 4%;
+  --foreground:           213 31% 91%;
+
+  --card:                 224 71% 7%;
+  --card-foreground:      213 31% 91%;
+
+  --popover:              224 71% 7%;
+  --popover-foreground:   215 20% 65%;
+
+  --primary:              210 100% 56%;
+  --primary-foreground:   0 0% 100%;
+
+  --secondary:            222 47% 14%;
+  --secondary-foreground: 213 31% 91%;
+
+  --muted:                223 47% 11%;
+  --muted-foreground:     215 20% 55%;
+
+  --accent:               216 34% 17%;
+  --accent-foreground:    213 31% 91%;
+
+  --destructive:          0 63% 55%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success:              142 71% 45%;
+  --success-foreground:   0 0% 100%;
+
+  --warning:              38 92% 50%;
+  --warning-foreground:   0 0% 0%;
+
+  --border:               216 34% 17%;
+  --input:                216 34% 17%;
+  --ring:                 210 100% 56%;
+
+  --radius:               0.5rem;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Base styles — plain CSS only, no @apply on * (breaks Tailwind v3)
+   ───────────────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+  border-color: hsl(var(--border));
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: inherit;
+  font-feature-settings: "rlig" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Scrollbar
+   ───────────────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar              { width: 6px; height: 6px; }
+::-webkit-scrollbar-track        { background: hsl(var(--background)); }
+::-webkit-scrollbar-thumb        { background: hsl(var(--border)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover  { background: hsl(var(--muted-foreground)); }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Custom animations (used by .animate-pulse-dot and .animate-fade-in)
+   ───────────────────────────────────────────────────────────────────────── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.25s ease-out both;
+}

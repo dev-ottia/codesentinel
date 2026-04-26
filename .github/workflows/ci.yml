@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Backend ──────────────────────────────────────────────────────────────────
+  backend:
+    name: Backend — Lint & Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: codesentinel
+          POSTGRES_PASSWORD: devpass
+          POSTGRES_DB: codesentinel
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U codesentinel"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      DATABASE_URL:               postgresql+asyncpg://codesentinel:devpass@localhost:5432/codesentinel
+      REDIS_URL:                  redis://localhost:6379/0
+      GITHUB_APP_WEBHOOK_SECRET:  ci_test_secret
+      SECRET_KEY:                 ci_test_secret_key
+      LOG_LEVEL:                  WARNING
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install \
+            fastapi "uvicorn[standard]" pydantic pydantic-settings \
+            asyncpg sqlalchemy alembic arq redis httpx structlog \
+            pytest pytest-asyncio pytest-cov anyio aiosqlite \
+            opentelemetry-api opentelemetry-sdk
+
+      - name: Run Alembic migrations
+        run: alembic upgrade head
+
+      - name: Run tests
+        run: pytest --tb=short -q
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: backend/htmlcov/
+
+  # ── Frontend ─────────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend — Type-check & Build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL:  http://localhost:8000
+          NEXTAUTH_URL:         http://localhost:3000
+          NEXTAUTH_SECRET:      ci_secret

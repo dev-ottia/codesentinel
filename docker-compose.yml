@@ -1,0 +1,90 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-codesentinel}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-devpass}
+      POSTGRES_DB: ${DB_NAME:-codesentinel}
+    ports:
+      - "5433:5432"
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    command: redis-server --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 5
+
+  backend:
+    build: ./backend
+    ports: ["8000:8000"]
+    volumes:
+      - ./backend:/app
+    env_file: .env
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://codesentinel:devpass@postgres:5432/codesentinel"
+      REDIS_URL: "redis://redis:6379/0"
+      OLLAMA_URL: "http://host.docker.internal:11434"
+      OLLAMA_MODEL: "qwen2.5:3b"
+      GITHUB_APP_WEBHOOK_SECRET: "${GITHUB_APP_WEBHOOK_SECRET}"
+      GITHUB_APP_CLIENT_ID: "${GITHUB_APP_CLIENT_ID}"
+      GITHUB_APP_CLIENT_SECRET: "${GITHUB_APP_CLIENT_SECRET}"
+      SECRET_KEY: "${SECRET_KEY}"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build: ./backend
+    volumes:
+      - ./backend:/app
+    env_file: .env
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://codesentinel:devpass@postgres:5432/codesentinel"
+      REDIS_URL: "redis://redis:6379/0"
+      OLLAMA_URL: "http://host.docker.internal:11434"
+      OLLAMA_MODEL: "qwen2.5:3b"
+      GITHUB_APP_WEBHOOK_SECRET: "${GITHUB_APP_WEBHOOK_SECRET}"
+      SECRET_KEY: "${SECRET_KEY}"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: arq app.workers.queue.WorkerSettings
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports: ["3000:3000"]
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    env_file: ./frontend/.env.local
+    environment:
+      # Server-side only — used by next.config.js rewrites to reach the
+      # backend container via Docker's internal DNS. Never sent to the browser.
+      INTERNAL_API_URL: "http://backend:8000"
+      # Public var — used by client-side fetch calls in the browser,
+      # which go through the Next.js rewrite proxy.
+      NEXT_PUBLIC_API_URL: "http://localhost:8000"
+    depends_on: [backend]
+    command: npm run dev
+
+volumes:
+  pgdata:
